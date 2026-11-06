@@ -6,6 +6,10 @@ name: Package (Linux)
 
 on:
   workflow_dispatch:
+  # workflow_dispatch only shows up once this file is on the default branch;
+  # until then, pushes to the Linux branch build it
+  push:
+    branches: [ccr-e5d6e0c7-yk0gav]
 
 permissions:
   contents: read
