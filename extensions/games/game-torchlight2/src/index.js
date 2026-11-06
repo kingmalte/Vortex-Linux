@@ -12,9 +12,9 @@ const MOD_EXT = ".mod";
 
 const extension = process.platform == "linux" ? ".bin.x86" : ".exe";
 
-function modPath() {
+function modPath(gamePath) {
   return path.join(
-    util.getVortexPath("documents"),
+    util.getGameUserFolder(GAME_ID, "documents", gamePath),
     "My Games",
     "runic games",
     "torchlight 2",

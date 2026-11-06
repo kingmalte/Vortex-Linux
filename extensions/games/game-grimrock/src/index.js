@@ -9,9 +9,9 @@ function findGame() {
   );
 }
 
-function modPath() {
+function modPath(gamePath) {
   return path.join(
-    util.getVortexPath("documents"),
+    util.getGameUserFolder("grimrock", "documents", gamePath),
     "Almost Human",
     "Legend of Grimrock",
     "Dungeons",

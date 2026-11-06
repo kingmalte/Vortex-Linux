@@ -102,13 +102,12 @@ function modPath(context) {
   return discovery.path;
 }
 
-let _modsFolder;
-function modPathEE() {
-  if (_modsFolder === undefined) {
-    _modsFolder = path.join(util.getVortexPath("documents"), "Neverwinter Nights");
-  }
-
-  return _modsFolder;
+// on Linux this is inside the game's Wine/Proton prefix
+function modPathEE(gamePath) {
+  return path.join(
+    util.getGameUserFolder(NWNEE_GAME_ID, "documents", gamePath),
+    "Neverwinter Nights",
+  );
 }
 
 function prepareForModding(discovery, context) {

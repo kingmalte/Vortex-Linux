@@ -115,6 +115,7 @@ vi.mock("./linux/proton", () => ({
   getProtonInfo: () => Promise.resolve({ usesProton: false }),
   buildProtonEnvironment: () => ({}),
   buildProtonCommand: () => ({ executable: "", args: [] }),
+  proxyDllOverrides: () => [],
 }));
 
 /**

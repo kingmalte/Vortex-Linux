@@ -85,23 +85,27 @@ function getLocale(eaPath) {
   return locale;
 }
 
-function findModPath() {
-  const eaPath = path.join(util.getVortexPath("documents"), "Electronic Arts");
+// on Linux this is inside the game's Wine/Proton prefix
+function eaDocumentsPath(gamePath) {
+  return path.join(util.getGameUserFolder("thesims4", "documents", gamePath), "Electronic Arts");
+}
 
+function findModPath(eaPath) {
   const locale = getLocale(eaPath);
   return path.join(eaPath, LOCALE_MODS_FOLDER[locale], "Mods");
 }
 
-function baseModPath() {
-  if (cachedModPath === undefined) {
-    cachedModPath = findModPath();
+function baseModPath(gamePath) {
+  const eaPath = eaDocumentsPath(gamePath);
+  if (cachedModPath?.eaPath !== eaPath) {
+    cachedModPath = { eaPath, modPath: findModPath(eaPath) };
   }
 
-  return cachedModPath;
+  return cachedModPath.modPath;
 }
 
-function modPath() {
-  return path.join(baseModPath(), MODS_SUB_PATH);
+function modPath(gamePath) {
+  return path.join(baseModPath(gamePath), MODS_SUB_PATH);
 }
 
 // a bit more generous than the default
@@ -174,7 +178,7 @@ function writeResourceCfg(resourceBasePath) {
 
 function enableModding() {
   const parser = new IniParser.default(new IniParser.WinapiFormat());
-  const eaPath = path.join(util.getVortexPath("documents"), "Electronic Arts");
+  const eaPath = eaDocumentsPath();
   const locale = getLocale(eaPath);
   const filePath = path.join(eaPath, LOCALE_MODS_FOLDER[locale], "Options.ini");
 

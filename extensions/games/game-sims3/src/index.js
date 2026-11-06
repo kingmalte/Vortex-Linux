@@ -37,9 +37,9 @@ function prepareForModding() {
     .catch(() => fs.writeFileAsync(resPath, resource, { encoding: "utf-8" }));
 }
 
-function modPath() {
+function modPath(gamePath) {
   return path.join(
-    util.getVortexPath("documents"),
+    util.getGameUserFolder("thesims3", "documents", gamePath),
     "Electronic Arts",
     "The Sims 3",
     "Mods",

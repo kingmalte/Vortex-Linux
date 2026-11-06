@@ -24,6 +24,7 @@ import { deBOM, makeQueue, truthy } from "../../../util/util";
 import { getGame } from "../../gamemode_management/util/getGame";
 import type { IDeploymentManifest, ManifestFormat } from "../types/IDeploymentManifest";
 import type { IDeployedFile, IDeploymentMethod } from "../types/IDeploymentMethod";
+import { CaseInsensitivePathResolver } from "./CaseInsensitivePathResolver";
 import { deployedFilePath } from "./deployedFilePath";
 import { getActivator, getCurrentActivator } from "./deploymentMethods";
 import format_1 from "./manifest_formats/format_1";
@@ -125,6 +126,39 @@ function isDeployedFile(stats: Stats, file: IDeployedFile): boolean {
   return Math.abs(stats.mtime.getTime() - file.time) < 1000;
 }
 
+/**
+ * Off Windows, deployment may have put a file into a folder spelled differently from
+ * the manifest entry (see CaseInsensitivePathResolver), so look it up that way when
+ * it's not at the recorded path.
+ */
+function caseResolverForPlatform(): CaseInsensitivePathResolver | undefined {
+  return process.platform !== "win32" ? new CaseInsensitivePathResolver() : undefined;
+}
+
+/** Stats of an entry's deployed file, and where it was found. */
+async function statDeployed(
+  basePath: string,
+  file: IDeployedFile,
+  statFunc: (filePath: string) => PromiseLike<Stats>,
+  resolver: CaseInsensitivePathResolver | undefined,
+): Promise<{ fullPath: string; stats: Stats }> {
+  const fullPath = deployedFilePath(basePath, file.target, file.relPath);
+  try {
+    return { fullPath, stats: await statFunc(fullPath) };
+  } catch (err) {
+    if (resolver === undefined || getErrorCode(err) !== "ENOENT") {
+      throw err;
+    }
+    const resolved = await resolver
+      .resolve(basePath, path.join(file.target || "", file.relPath))
+      .catch(() => fullPath);
+    if (resolved === fullPath) {
+      throw err;
+    }
+    return { fullPath: resolved, stats: await statFunc(resolved) };
+  }
+}
+
 // manifests can list 100k files
 const PRESENCE_CHECK_CONCURRENCY = 256;
 
@@ -134,12 +168,13 @@ export async function filesStillDeployed(
   files: IDeployedFile[],
 ): Promise<IDeployedFile[]> {
   const limit = new ConcurrencyLimiter(PRESENCE_CHECK_CONCURRENCY);
+  const resolver = caseResolverForPlatform();
   const present = await Promise.all(
     files.map((file) =>
       limit.do(() =>
-        lstat(deployedFilePath(basePath, file.target, file.relPath)).then(
+        statDeployed(basePath, file, lstat, resolver).then(
           // a link left behind is still Vortex's, whatever its target
-          (stats) => stats.isSymbolicLink() || isDeployedFile(stats, file),
+          ({ stats }) => stats.isSymbolicLink() || isDeployedFile(stats, file),
           (err: unknown) => getErrorCode(err) !== "ENOENT",
         ),
       ),
@@ -170,12 +205,11 @@ export async function savePurgeLeftovers(
 }
 
 export function purgeDeployedFiles(basePath: string, files: IDeployedFile[]): Promise<void> {
+  const resolver = caseResolverForPlatform();
   return Promise.all(
     files.map((file) => {
-      const fullPath = deployedFilePath(basePath, file.target, file.relPath);
-      return fs
-        .statAsync(fullPath)
-        .then((stats) => {
+      return statDeployed(basePath, file, (filePath) => fs.statAsync(filePath), resolver)
+        .then(({ fullPath, stats }) => {
           return isDeployedFile(stats, file) ? fs.unlinkAsync(fullPath) : Promise.resolve();
         })
         .catch((err: unknown) => {

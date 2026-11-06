@@ -60,6 +60,7 @@ import {
   withActivationLock,
 } from "./util/activationStore";
 import allTypesSupported from "./util/allTypesSupported";
+import { getDeploymentNormalizeFunc } from "./util/CaseInsensitivePathResolver";
 import { genSubDirFunc, purgeMods } from "./util/deploy";
 import { reportRecordedFailures, resetDeploymentFailures } from "./util/deploymentFailures";
 import {
@@ -688,7 +689,7 @@ async function undeploy(
         }
         let normalize: Normalize;
         try {
-          normalize = await getNormalizeFunc(deployPath);
+          normalize = await getDeploymentNormalizeFunc(state, gameMode, deployPath);
           const lastActivation = await loadActivation(
             api,
             gameMode,

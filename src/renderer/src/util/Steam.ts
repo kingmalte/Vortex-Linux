@@ -14,7 +14,12 @@ import type { IExtensionApi } from "../types/IExtensionContext";
 import type { ICustomExecutionInfo, IGameStore, IGameStoreSnapshot } from "../types/IGameStore";
 import { GameEntryNotFound } from "../types/IGameStore";
 import type { IGameStoreEntry } from "../types/IGameStoreEntry";
-import { getProtonInfo, buildProtonEnvironment, buildProtonCommand } from "./linux/proton";
+import {
+  getProtonInfo,
+  buildProtonEnvironment,
+  buildProtonCommand,
+  proxyDllOverrides,
+} from "./linux/proton";
 import { findLinuxSteamPath } from "./linux/steamPaths";
 
 /** VDF leaves are plain strings, so only nested blocks can be indexed further. */
@@ -541,7 +546,12 @@ class Steam implements IGameStore {
       exePath,
       args,
     );
-    const protonEnv = buildProtonEnvironment(gameEntry.compatDataPath, steamPath, options.env);
+    const protonEnv = buildProtonEnvironment(
+      gameEntry.compatDataPath,
+      steamPath,
+      options.env,
+      proxyDllOverrides(path.dirname(exePath)),
+    );
 
     return api.runExecutable(executable, protonArgs, {
       ...options,

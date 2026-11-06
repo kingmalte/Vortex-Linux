@@ -26,9 +26,9 @@ function findGame() {
     .catch(() => regget("Software\\Wow6432Node\\BioWare\\Dragon Age II", "Install Dir"));
 }
 
-function queryModPath() {
+function queryModPath(gamePath) {
   return path.join(
-    util.getVortexPath("documents"),
+    util.getGameUserFolder("dragonage2", "documents", gamePath),
     "BioWare",
     "Dragon Age 2",
     "packages",

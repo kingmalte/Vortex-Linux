@@ -29,6 +29,7 @@
     "assets": "node ./scripts/dependency-report.mjs",
     "package": "pnpm cross-env NODE_ENV=production pnpm run build && pnpm cross-env NODE_ENV=production pnpm nx run @vortex/main:package",
     "package:nosign": "pnpm cross-env NODE_ENV=production pnpm run build && pnpm cross-env NODE_ENV=production pnpm nx run @vortex/main:package:nosign",
+    "package:linux": "pnpm cross-env NODE_ENV=production pnpm run build && pnpm cross-env NODE_ENV=production pnpm nx run @vortex/main:package:linux",
     "typecheck": "pnpm nx run-many -t typecheck",
     "lint": "pnpm nx run-many -t lint",
     "lint:verbose": "pnpm nx run-many -t lint:verbose",

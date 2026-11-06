@@ -17,8 +17,8 @@ function gameExecutable() {
   return "BattleTech.exe";
 }
 
-function modPath() {
-  return path.join(util.getVortexPath("documents"), "My Games", "BattleTech", "mods");
+function modPath(gamePath) {
+  return path.join(util.getGameUserFolder(GAME_ID, "documents", gamePath), "My Games", "BattleTech", "mods");
 }
 
 function resolveGameVersion(discoveryPath) {

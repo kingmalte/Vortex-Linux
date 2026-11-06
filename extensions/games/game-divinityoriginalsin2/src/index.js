@@ -5,18 +5,18 @@ const winapi = require("winapi-bindings");
 const GAME_ID = "divinityoriginalsin2";
 const GAME_ID_DE = "divinityoriginalsin2definitiveedition";
 
-function modPath() {
+function modPath(gamePath) {
   return path.join(
-    util.getVortexPath("documents"),
+    util.getGameUserFolder(GAME_ID, "documents", gamePath),
     "Larian Studios",
     "Divinity Original Sin 2",
     "Mods",
   );
 }
 
-function modPathDE() {
+function modPathDE(gamePath) {
   return path.join(
-    util.getVortexPath("documents"),
+    util.getGameUserFolder(GAME_ID_DE, "documents", gamePath),
     "Larian Studios",
     "Divinity Original Sin 2 Definitive Edition",
     "Mods",

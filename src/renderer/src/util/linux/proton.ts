@@ -1,3 +1,4 @@
+import * as fsOrig from "fs";
 import * as path from "path";
 
 import { parse } from "simple-vdf";
@@ -228,24 +229,50 @@ export function isWindowsExecutable(filePath: string): boolean {
   return [".exe", ".bat", ".cmd"].includes(ext);
 }
 
+// Mod loaders install themselves as stand-ins for these system DLLs next to the
+// game's executable (Cyber Engine Tweaks: version, RED4ext: winmm, ASI loaders:
+// dinput8/dsound/winmm, BepInEx: winhttp). Wine only loads them if told to prefer
+// the "native" copy over its "builtin" one.
+const PROXY_DLLS = ["version", "winmm", "dinput8", "dsound", "winhttp"];
+
+/** The proxy DLLs present in exeDir, which have to be overridden to load under Wine. */
+export function proxyDllOverrides(exeDir: string): string[] {
+  let names: string[];
+  try {
+    names = fsOrig.readdirSync(exeDir).map((name) => name.toLowerCase());
+  } catch {
+    return [];
+  }
+  return PROXY_DLLS.filter((dll) => names.includes(`${dll}.dll`));
+}
+
 /**
  * Build environment variables for running through Proton
+ *
+ * @param dllOverrides DLLs Wine should load from the game folder before its own,
+ *                     added to any WINEDLLOVERRIDES already set
  */
 export function buildProtonEnvironment(
   compatDataPath: string,
   steamPath: string,
   existingEnv?: Record<string, string>,
+  dllOverrides: string[] = [],
 ): Record<string, string> {
   const preloads = [
     path.join(steamPath, "ubuntu12_32", "gameoverlayrenderer.so"),
     path.join(steamPath, "ubuntu12_64", "gameoverlayrenderer.so"),
   ];
+  const overrides = [
+    existingEnv?.WINEDLLOVERRIDES ?? process.env.WINEDLLOVERRIDES,
+    dllOverrides.length > 0 ? `${dllOverrides.join(",")}=n,b` : undefined,
+  ].filter((entry) => !!entry);
   return {
     ...existingEnv,
     STEAM_COMPAT_DATA_PATH: compatDataPath,
     STEAM_COMPAT_CLIENT_INSTALL_PATH: steamPath,
     WINEPREFIX: getWinePrefixPath(compatDataPath),
     LD_PRELOAD: preloads.join(":"),
+    ...(overrides.length > 0 ? { WINEDLLOVERRIDES: overrides.join(";") } : {}),
   };
 }
 

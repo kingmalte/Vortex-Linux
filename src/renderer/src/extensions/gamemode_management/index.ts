@@ -33,6 +33,7 @@ import type { IEditChoice, ITableAttribute } from "../../types/ITableAttribute";
 import { DataInvalid, ProcessCanceled, SetupError, UserCanceled } from "../../util/CustomErrors";
 import * as fs from "../../util/fs";
 import GameStoreHelperInstance from "../../util/GameStoreHelper";
+import { attachGameUserPathLookup } from "../../util/gameUserPath";
 import { isContributed } from "../../util/isContributed";
 import local from "../../util/local";
 import { showError } from "../../util/message";
@@ -955,6 +956,7 @@ function init(context: IExtensionContext): boolean {
       },
     );
     $.gameModeManager = gameModeManager;
+    attachGameUserPathLookup((gameId) => discoveryByGame(store.getState(), gameId)?.path);
     // the extension API's GameStoreHelper is a dumb adapter; hand it the
     // manager's store list once the manager exists
     GameStoreHelperInstance.attach(() => gameModeManager.gameStores);

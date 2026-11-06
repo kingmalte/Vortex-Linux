@@ -44,7 +44,6 @@ import { opn } from "../../util/api";
 import { ProcessCanceled, TemporaryError, UserCanceled } from "../../util/CustomErrors";
 import Debouncer from "../../util/Debouncer";
 import * as fs from "../../util/fs";
-import getNormalizeFunc from "../../util/getNormalizeFunc";
 import getVortexPath from "../../util/getVortexPath";
 import onceCB from "../../util/onceCB";
 import {
@@ -133,6 +132,7 @@ import {
 import allTypesSupported from "./util/allTypesSupported";
 import * as basicInstaller from "./util/basicInstaller";
 import BlacklistSet from "./util/BlacklistSet";
+import { getDeploymentNormalizeFunc } from "./util/CaseInsensitivePathResolver";
 import {
   activateSingleMod,
   genSubDirFunc,
@@ -309,7 +309,7 @@ async function deployModType(
     count: lastDeployment.length,
   });
 
-  const normalize = await getNormalizeFunc(targetPath);
+  const normalize = await getDeploymentNormalizeFunc(api.getState(), game.id, targetPath);
   const newActivation = await deployMods(
     api,
     game.id,
@@ -1326,7 +1326,7 @@ function onDeploySingleMod(api: IExtensionApi) {
     const subdir = genSubDirFunc(game, getModType(mod.type));
     await withActivationLock(async () => {
       try {
-        const normalize = await getNormalizeFunc(dataPath);
+        const normalize = await getDeploymentNormalizeFunc(state, gameId, dataPath);
         const lastActivation = await loadActivation(
           api,
           gameId,

@@ -12,7 +12,7 @@ const SCENE_FILE_EXT = ".scn.xml";
 const UMM_MOD_INFO = "Info.json";
 
 function getSceneFolder() {
-  return path.join(util.getVortexPath("documents"), "DawnOfMan", "Scenarios");
+  return path.join(util.getGameUserFolder(GAME_ID, "documents"), "DawnOfMan", "Scenarios");
 }
 
 function readRegistryKey(hive, key, name) {

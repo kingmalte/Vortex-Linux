@@ -1,0 +1,78 @@
+name: Package (Linux)
+
+# Builds an unsigned Linux x64 build of Vortex: the unpacked Electron app, as a
+# tarball. No installer, AppImage, Flatpak or auto-update feed. Unpack it and
+# run ./vortex; see docs/packaging/linux.md.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: "recursive"
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+
+      - name: Install pnpm
+        uses: ./.github/actions/setup-pnpm
+
+      # fontconfig is required by font-scanner, which theme-switcher uses
+      - name: Install fontconfig
+        run: sudo apt-get update && sudo apt-get install -y libfontconfig1-dev
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        env:
+          VORTEX_ELECTRON_REBUILD: "defer"
+
+      - name: Build workspace
+        run: pnpm run build
+        env:
+          NODE_ENV: production
+
+      - name: Publish dist package
+        run: pnpm nx run @vortex/main:publish
+        env:
+          NODE_ENV: production
+          VORTEX_ELECTRON_REBUILD: "skip"
+
+      - name: Rebuild packaged Electron native modules
+        working-directory: src/main/dist
+        env:
+          # dist is a pnpm deploy artifact: its lockfile carries the workspace catalogs
+          # but the generated workspace file doesn't, so pnpm's pre-run install fails.
+          PNPM_CONFIG_VERIFY_DEPS_BEFORE_RUN: "false"
+        run: pnpm exec electron-rebuild
+
+      - name: Build unpacked app
+        run: pnpm -F @vortex/main run package:linux
+
+      - name: Create tarball
+        run: |
+          version=$(node -p "require('./src/main/dist/package.json').version")
+          echo "VORTEX_VERSION=$version" >> "$GITHUB_ENV"
+          mv dist/linux-unpacked "dist/vortex-$version-linux-x64"
+          tar -C dist -czf "dist/vortex-$version-linux-x64.tar.gz" "vortex-$version-linux-x64"
+
+      - name: Upload tarball
+        uses: actions/upload-artifact@v7
+        with:
+          name: vortex-${{ env.VORTEX_VERSION }}-linux-x64
+          path: dist/vortex-*-linux-x64.tar.gz
+          if-no-files-found: error
+          retention-days: 30

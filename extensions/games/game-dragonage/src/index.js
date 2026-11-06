@@ -10,8 +10,6 @@ const STEAM_ID_ULTIMATE_EDITION = 47810;
 const VDF_EXT = ".vdf";
 
 // Static variables to store paths we resolve using util.getVortexPath.
-let _ADDINS_PATH = undefined;
-let _MODS_PATH = undefined;
 
 let _APPID;
 function findGame() {
@@ -40,33 +38,24 @@ function findGame() {
     });
 }
 
-function queryModPath() {
-  if (_MODS_PATH === undefined) {
-    _MODS_PATH = path.join(
-      util.getVortexPath("documents"),
-      "BioWare",
-      "Dragon Age",
-      "packages",
-      "core",
-      "override",
-    );
-  }
+// on Linux this is inside the game's Wine/Proton prefix
+function documentsPath(gamePath) {
+  return util.getGameUserFolder("dragonage", "documents", gamePath);
+}
 
-  return _MODS_PATH;
+function queryModPath(gamePath) {
+  return path.join(
+    documentsPath(gamePath),
+    "BioWare",
+    "Dragon Age",
+    "packages",
+    "core",
+    "override",
+  );
 }
 
 function addinsPath() {
-  if (_ADDINS_PATH === undefined) {
-    _ADDINS_PATH = path.join(
-      util.getVortexPath("documents"),
-      "Bioware",
-      "Dragon Age",
-      "Settings",
-      ADDINS_FILE,
-    );
-  }
-
-  return _ADDINS_PATH;
+  return path.join(documentsPath(), "Bioware", "Dragon Age", "Settings", ADDINS_FILE);
 }
 
 function prepareForModding() {
@@ -74,7 +63,7 @@ function prepareForModding() {
     .ensureDirWritableAsync(queryModPath())
     .then(() =>
       fs.ensureDirAsync(
-        path.join(util.getVortexPath("documents"), "BioWare", "Dragon Age", "AddIns"),
+        path.join(documentsPath(), "BioWare", "Dragon Age", "AddIns"),
       ),
     )
     .then(() => fs.ensureDirAsync(path.dirname(addinsPath())));

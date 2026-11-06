@@ -33,8 +33,8 @@ function findGame() {
   }
 }
 
-function modPath() {
-  return path.join(util.getVortexPath("appData"), "Surviving Mars", "mods");
+function modPath(gamePath) {
+  return path.join(util.getGameUserFolder(SURVIVINGMARS_ID, "appData", gamePath), "Surviving Mars", "mods");
 }
 
 function prepareForModding() {

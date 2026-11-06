@@ -34,6 +34,9 @@ export interface INormalizeParameters {
   unicode?: boolean;
   // reduce "..", remove ".", remove redundant slashes
   relative?: boolean;
+  // compare case-insensitively even where the file system is case-sensitive, e.g. for
+  // a Windows game on Linux, which runs through Wine/Proton and ignores case
+  caseInsensitive?: boolean;
 }
 
 function isCaseSensitiveFailed(testPath: string, reason: string): PromiseBB<boolean> {
@@ -110,7 +113,10 @@ function getNormalizeFunc(
 
   const stackErr = new Error();
 
-  return isCaseSensitive(testPath)
+  const caseSensitiveProm =
+    parameters.caseInsensitive === true ? PromiseBB.resolve(false) : isCaseSensitive(testPath);
+
+  return caseSensitiveProm
     .then((caseSensitive) => {
       let funcOut = caseSensitive ? (input: string) => input : genNormalizeCase();
 
@@ -131,7 +137,10 @@ function getNormalizeFunc(
         const parent = path.dirname(testPath);
         return parent === testPath
           ? PromiseBB.reject(restackErr(err, stackErr))
-          : getNormalizeFunc(parent);
+          : getNormalizeFunc(
+              parent,
+              parameters.caseInsensitive === true ? { caseInsensitive: true } : undefined,
+            );
       } else {
         return PromiseBB.reject(restackErr(err, stackErr));
       }

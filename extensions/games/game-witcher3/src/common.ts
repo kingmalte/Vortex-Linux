@@ -65,11 +65,15 @@ export class MergeDataViolationError extends Error {
 }
 
 export function getLoadOrderFilePath() {
-  return path.join(util.getVortexPath("documents"), "The Witcher 3", LOAD_ORDER_FILENAME);
+  return path.join(util.getGameUserFolder(GAME_ID, "documents"), "The Witcher 3", LOAD_ORDER_FILENAME);
 }
 
 export function getDx12UserSettingsPath() {
-  return path.join(util.getVortexPath("documents"), "The Witcher 3", DX12_USER_SETTINGS_FILENAME);
+  return path.join(
+    util.getGameUserFolder(GAME_ID, "documents"),
+    "The Witcher 3",
+    DX12_USER_SETTINGS_FILENAME,
+  );
 }
 
 export function getRemasterNoticeSeenBranch() {

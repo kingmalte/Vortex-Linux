@@ -28,6 +28,8 @@ const NXM_PROTOCOL = "nxm";
 const PACKAGE_DESKTOP_ID = "com.nexusmods.vortex.desktop";
 const DEV_DESKTOP_ID = "com.nexusmods.vortex.dev.desktop";
 const DEV_WRAPPER_FILE_NAME = "com.nexusmods.vortex.dev.sh";
+// a packaged build run straight from its folder (not the Flatpak) brings no desktop entry
+const PACKAGE_WRAPPER_FILE_NAME = "com.nexusmods.vortex.sh";
 
 /**
  * Required registration inputs for Linux `nxm` routing.
@@ -60,6 +62,9 @@ export function registerLinuxNxmProtocolHandler(
       options.executablePath,
       options.appPath,
     );
+  } else if (!isFlatpakBuild()) {
+    // the packaged app is the executable itself, it takes no app path
+    didChangeDesktopFiles = ensurePackageDesktopEntry(applicationsDir, options.executablePath);
   }
 
   if (didChangeDesktopFiles) {
@@ -130,7 +135,7 @@ function escapeShellScriptArgument(input: string): string {
  * The desktop-entry escaping rules are applied separately to Exec/TryExec fields.
  * Vortex adds `appPath` because Electron launches as: <electron> <appPath> ...
  */
-function generateWrapperScript(executablePath: string, appPath: string): string {
+function generateWrapperScript(executablePath: string, appPath: string | undefined): string {
   // Persist GTK/Electron environment variables used to run Vortex.
   // This is needed for Nix, such that you can launch the desktop entry outside
   // of the Nix devShell during development. For other environments, this will
@@ -155,6 +160,11 @@ function generateWrapperScript(executablePath: string, appPath: string): string 
     .filter((line): line is string => line !== null)
     .join("\n");
 
+  const command = [executablePath, appPath]
+    .filter((arg) => arg !== undefined)
+    .map((arg) => `"${escapeShellScriptArgument(arg)}"`)
+    .join(" ");
+
   return (
     "#!/bin/sh\n" +
     // Environment variables like LD_LIBRARY_PATH and LD_PRELOAD carried over from the
@@ -170,9 +180,9 @@ function generateWrapperScript(executablePath: string, appPath: string): string 
     // This matches Windows behaviour, which includes --download on all protocol handler calls,
     // but does not on non-handler calls (e.g., when starting from the start menu).
     `if [ -n "$1" ]; then\n` +
-    `  exec "${escapeShellScriptArgument(executablePath)}" "${escapeShellScriptArgument(appPath)}" --download "$@"\n` +
+    `  exec ${command} --download "$@"\n` +
     `else\n` +
-    `  exec "${escapeShellScriptArgument(executablePath)}" "${escapeShellScriptArgument(appPath)}"\n` +
+    `  exec ${command}\n` +
     `fi\n`
   );
 }
@@ -217,26 +227,53 @@ function ensureDevDesktopEntry(
   executablePath: string,
   appPath: string,
 ): boolean {
-  const wrapperPath = path.join(applicationsDir, DEV_WRAPPER_FILE_NAME);
-  const desktopFilePath = path.join(applicationsDir, DEV_DESKTOP_ID);
+  return ensureDesktopEntry(applicationsDir, {
+    desktopId: DEV_DESKTOP_ID,
+    wrapperFileName: DEV_WRAPPER_FILE_NAME,
+    name: "Vortex (dev build)",
+    noDisplay: true,
+    wrapperContent: generateWrapperScript(executablePath, appPath),
+  });
+}
+
+function ensurePackageDesktopEntry(applicationsDir: string, executablePath: string): boolean {
+  return ensureDesktopEntry(applicationsDir, {
+    desktopId: PACKAGE_DESKTOP_ID,
+    wrapperFileName: PACKAGE_WRAPPER_FILE_NAME,
+    name: "Vortex",
+    noDisplay: false,
+    wrapperContent: generateWrapperScript(executablePath, undefined),
+  });
+}
+
+interface IDesktopEntryOptions {
+  desktopId: string;
+  wrapperFileName: string;
+  name: string;
+  noDisplay: boolean;
+  wrapperContent: string;
+}
+
+function ensureDesktopEntry(applicationsDir: string, options: IDesktopEntryOptions): boolean {
+  const wrapperPath = path.join(applicationsDir, options.wrapperFileName);
+  const desktopFilePath = path.join(applicationsDir, options.desktopId);
 
   warnIfApplicationsPathNeedsEscaping(applicationsDir);
 
   const escapedWrapperPathExec = escapeDesktopExecFilePath(wrapperPath);
   const escapedWrapperPathTryExec = escapeDesktopFilePath(wrapperPath);
 
-  const wrapperContent = generateWrapperScript(executablePath, appPath);
-  const wrapperChanged = writeFileIfChanged(wrapperPath, wrapperContent, 0o755);
+  const wrapperChanged = writeFileIfChanged(wrapperPath, options.wrapperContent, 0o755);
 
   // The wrapper script adds --download conditionally when %u is provided.
   // This matches Windows behaviour where --download is only passed for protocol URLs.
   const desktopFileContent =
     "[Desktop Entry]\n" +
     "Type=Application\n" +
-    "Name=Vortex (dev build)\n" +
+    `Name=${options.name}\n` +
     "GenericName=Mod Manager\n" +
     "Comment=Mod manager for PC games from Nexus Mods\n" +
-    "NoDisplay=true\n" +
+    `NoDisplay=${options.noDisplay}\n` +
     `Exec=${escapedWrapperPathExec} %u\n` +
     `TryExec=${escapedWrapperPathTryExec}\n` +
     "Icon=com.nexusmods.vortex\n" +

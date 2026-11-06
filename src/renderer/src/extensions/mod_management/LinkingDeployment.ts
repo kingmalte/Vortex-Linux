@@ -25,6 +25,10 @@ import type {
   IUnavailableReason,
 } from "./types/IDeploymentMethod";
 import type BlacklistSet from "./util/BlacklistSet";
+import {
+  CaseInsensitivePathResolver,
+  deploysCaseInsensitively,
+} from "./util/CaseInsensitivePathResolver";
 import { deployedFileKey, deployedFilePath } from "./util/deployedFilePath";
 
 export interface IDeployment {
@@ -111,6 +115,8 @@ abstract class LinkingActivator implements IDeploymentMethod {
   private mQueue: Promise<void> = Promise.resolve();
   private mContext: IDeploymentContext;
   private mDirCache: Set<string>;
+  // set during finalize for games whose file names have to be matched case-insensitively
+  #caseResolver: CaseInsensitivePathResolver | undefined;
 
   constructor(
     id: string,
@@ -199,6 +205,7 @@ abstract class LinkingActivator implements IDeploymentMethod {
     let contentChanged: string[];
 
     this.mDirCache = new Set<string>();
+    this.#caseResolver = this.#makeCaseResolver(gameId);
 
     // unlink all files that were removed or changed
     ({ added, removed, sourceChanged, contentChanged } = this.diffActivation(
@@ -356,6 +363,7 @@ abstract class LinkingActivator implements IDeploymentMethod {
         })
         .finally(() => {
           this.mDirCache = undefined;
+          this.#caseResolver = undefined;
         })
     );
   }
@@ -505,11 +513,12 @@ abstract class LinkingActivator implements IDeploymentMethod {
     activation: IDeployedFile[],
   ): Promise<IFileChange[]> {
     const changes: IFileChange[] = [];
+    const caseResolver = this.#makeCaseResolver(gameId);
 
     return mapWithConcurrency(
       activation ?? [],
-      (fileEntry) => {
-        const fileDataPath = deployedFilePath(dataPath, fileEntry.target, fileEntry.relPath);
+      async (fileEntry) => {
+        const fileDataPath = await this.#outputPath(dataPath, fileEntry, caseResolver);
         const fileModPath = [installPath, fileEntry.source, fileEntry.relPath].join(path.sep);
         let sourceDeleted: boolean = false;
         let destDeleted: boolean = false;
@@ -691,6 +700,26 @@ abstract class LinkingActivator implements IDeploymentMethod {
     ).then(() => didCreate);
   }
 
+  #makeCaseResolver(gameId: string): CaseInsensitivePathResolver | undefined {
+    return deploysCaseInsensitively(this.mApi.getState(), gameId)
+      ? new CaseInsensitivePathResolver()
+      : undefined;
+  }
+
+  /**
+   * Where a deployed file is. With a resolver that's the spelling the path has on disk,
+   * see {@link CaseInsensitivePathResolver}.
+   */
+  #outputPath(
+    dataPath: string,
+    file: IDeployedFile,
+    resolver: CaseInsensitivePathResolver | undefined,
+  ): Promise<string> {
+    return resolver === undefined
+      ? Promise.resolve(deployedFilePath(dataPath, file.target, file.relPath))
+      : resolver.resolve(dataPath, path.join(file.target || "", file.relPath));
+  }
+
   private deduplicate(input: IFileChange[]): IFileChange[] {
     // since the change detection is an asynchronous process, it's possible (though extremely rare)
     // that the same file may show up with different change types. This can cause an error
@@ -752,17 +781,17 @@ abstract class LinkingActivator implements IDeploymentMethod {
     if (this.mContext.previousDeployment[key] === undefined) {
       return Promise.reject(new Error(`failed to remove "${key}"`));
     }
-    const outputPath = path.join(
-      dataPath,
-      this.mContext.previousDeployment[key].target || "",
-      this.mContext.previousDeployment[key].relPath,
-    );
     const sourcePath = path.join(
       installationPath,
       this.mContext.previousDeployment[key].source,
       this.mContext.previousDeployment[key].relPath,
     );
-    return Promise.resolve(this.unlinkFile(outputPath, sourcePath))
+    let outputPath: string;
+    return this.#outputPath(dataPath, this.mContext.previousDeployment[key], this.#caseResolver)
+      .then((resolved) => {
+        outputPath = resolved;
+        return this.unlinkFile(outputPath, sourcePath);
+      })
       .catch((err: unknown) =>
         // duck-typing is unavoidable here: symlink_activator_elevate rejects
         // with deserialized IPC objects that are not Error instances, so
@@ -807,17 +836,26 @@ abstract class LinkingActivator implements IDeploymentMethod {
       this.mContext.newDeployment[key].source,
       this.mContext.newDeployment[key].relPath,
     ].join(path.sep);
-    const fullOutputPath = [
+    let fullOutputPath = [
       dataPath,
       this.mContext.newDeployment[key].target || null,
       this.mContext.newDeployment[key].relPath,
     ]
       .filter((i) => i !== null)
       .join(path.sep);
+    const outputProm =
+      this.#caseResolver === undefined
+        ? Promise.resolve()
+        : this.#outputPath(dataPath, this.mContext.newDeployment[key], this.#caseResolver).then(
+            (resolved) => {
+              fullOutputPath = resolved;
+            },
+          );
 
     const backupProm: Promise<void> = replace
-      ? Promise.resolve()
-      : Promise.resolve(this.isLink(fullOutputPath, fullPath))
+      ? outputProm
+      : outputProm
+          .then(() => this.isLink(fullOutputPath, fullPath))
           .then((link) =>
             link
               ? Promise.resolve(undefined) // don't re-create link that's already correct

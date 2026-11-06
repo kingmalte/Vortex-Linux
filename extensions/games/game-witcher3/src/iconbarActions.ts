@@ -15,7 +15,7 @@ interface IProps {
 export const registerActions = (props: IProps) => {
   const { context } = props;
   const openTW3DocPath = () => {
-    const docPath = path.join(util.getVortexPath("documents"), "The Witcher 3");
+    const docPath = path.join(util.getGameUserFolder("witcher3", "documents"), "The Witcher 3");
     util.opn(docPath).catch(() => null);
   };
 

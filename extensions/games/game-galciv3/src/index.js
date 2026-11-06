@@ -28,12 +28,12 @@ function findGame() {
   }
 }
 
-function modPath() {
-  return path.join(util.getVortexPath("documents"), "My Games", "GalCiv3");
+function modPath(gamePath) {
+  return path.join(util.getGameUserFolder(GAME_ID, "documents", gamePath), "My Games", "GalCiv3");
 }
 
-function crusadeModPath() {
-  return path.join(util.getVortexPath("documents"), "My Games", "GC3Crusade");
+function crusadeModPath(gamePath) {
+  return path.join(util.getGameUserFolder(GAME_ID, "documents", gamePath), "My Games", "GC3Crusade");
 }
 
 function dirExists(dirPath) {
