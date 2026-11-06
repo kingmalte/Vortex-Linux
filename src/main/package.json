@@ -21,7 +21,7 @@
     "publish": "pnpm exec rimraf ./dist && pnpm cross-env pnpm_config_inject_workspace_packages=true pnpm_config_node_linker=hoisted pnpm -F @vortex/main deploy ./dist && node ./dist/prepare-dist-package.mjs",
     "package": "cd ./dist && pnpm electron-builder --config ./electron-builder.config.json --config.win.forceCodeSigning=true --config.win.sign=./sign.cjs --publish never",
     "package:nosign": "cd ./dist && pnpm electron-builder --config ./electron-builder.config.json --publish never",
-    "package:linux": "cd ./dist && pnpm electron-builder --config ./electron-builder.config.json --publish never --linux dir",
+    "package:linux": "cd ./dist && USE_HARD_LINKS=false pnpm electron-builder --config ./electron-builder.config.json --publish never --linux dir",
     "sbom": "pnpm node ./sbom.mjs",
     "download-duckdb-extensions": "pnpm tsx ./download-duckdb-extensions.ts",
     "generate:unleash": "pnpm node src/unleash/trim-spec.mjs && pnpm exec openapi-typescript src/unleash/openapi-slim.json --immutable --output src/unleash/schema.d.ts && pnpm exec oxfmt ./src/unleash/*.json ./src/unleash/schema.d.ts"
